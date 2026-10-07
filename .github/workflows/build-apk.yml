@@ -20,6 +20,12 @@ jobs:
           mkdir project
           unzip -q ScreenOCR-source-v2-android11-timestamp.zip -d project
 
+      - name: Mostrar OcrService
+        working-directory: project
+        run: |
+          echo "=== OcrService.kt líneas 120-150 ==="
+          nl -ba app/src/main/java/com/example/screenocr/OcrService.kt | sed -n '120,150p'
+
       - name: Configurar Java
         uses: actions/setup-java@v4
         with:
