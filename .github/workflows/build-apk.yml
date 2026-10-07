@@ -20,11 +20,13 @@ jobs:
           mkdir project
           unzip -q ScreenOCR-source-v2-android11-timestamp.zip -d project
 
-      - name: Mostrar OcrService
+      - name: Corregir OcrService
         working-directory: project
         run: |
-          echo "=== OcrService.kt líneas 120-220 ==="
-          nl -ba app/src/main/java/com/example/screenocr/OcrService.kt | sed -n '120,220p'
+          echo "Eliminando bloque duplicado de OcrService.kt..."
+          sed -i '134,144d' app/src/main/java/com/example/screenocr/OcrService.kt
+          echo "=== OcrService.kt corregido, líneas 120-150 ==="
+          nl -ba app/src/main/java/com/example/screenocr/OcrService.kt | sed -n '120,150p'
 
       - name: Configurar Java
         uses: actions/setup-java@v4
