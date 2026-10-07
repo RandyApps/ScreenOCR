@@ -1,17 +1,13 @@
 name: Construir APK
 
-"on":
-workflow_dispatch:
-push:
-paths:
-- 'ScreenOCR-source-v2-android11-timestamp.zip'
-- '.github/workflows/build-apk.yml'
+on: [workflow_dispatch]
 
 jobs:
 build:
 runs-on: ubuntu-latest
 
 steps:
+
   - name: Descargar repositorio
     uses: actions/checkout@v4
 
@@ -25,33 +21,19 @@ steps:
     working-directory: project
     run: |
       echo "Corrigiendo OcrService.kt..."
-
       sed -i '134,144d' app/src/main/java/com/example/screenocr/OcrService.kt
       sed -i 's/; addDrag(box,b)//' app/src/main/java/com/example/screenocr/OcrService.kt
 
-      echo "OcrService.kt corregido."
-
-  - name: Diagnosticar estructura del proyecto
+  - name: Diagnosticar proyecto
     working-directory: project
     run: |
-      echo "========================================"
-      echo "ESTRUCTURA DEL PROYECTO"
-      echo "========================================"
-
+      echo "===== ESTRUCTURA ====="
       find . -maxdepth 4 -type f | sort | head -300
 
-      echo ""
-      echo "========================================"
-      echo "ARCHIVOS GRADLE"
-      echo "========================================"
-
+      echo "===== GRADLE ====="
       find . -type f -name "build.gradle" -o -name "build.gradle.kts" -print
 
-      echo ""
-      echo "========================================"
-      echo "SETTINGS GRADLE"
-      echo "========================================"
-
+      echo "===== SETTINGS ====="
       find . -type f -name "settings.gradle" -o -name "settings.gradle.kts" -print
 
   - name: Configurar Java
@@ -67,25 +49,14 @@ steps:
 
   - name: Compilar APK
     working-directory: project
-    run: |
-      gradle :app:assembleDebug --stacktrace
+    run: gradle :app:assembleDebug --stacktrace
 
   - name: Verificar APK
     working-directory: project
     run: |
       APK="app/build/outputs/apk/debug/app-debug.apk"
-
-      echo "========================================"
-      echo "APK GENERADO"
-      echo "========================================"
-
       ls -lh "$APK"
-
-      echo ""
-      echo "Comprobando integridad del APK..."
-
       unzip -t "$APK" > /dev/null
-
       echo "APK válido."
 
   - name: Publicar APK
