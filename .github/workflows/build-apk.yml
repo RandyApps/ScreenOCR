@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     paths:
-      - 'ScreenOCR-source-v2-android11.zip'
+      - 'ScreenOCR-source-v2-android11-timestamp.zip'
       - '.github/workflows/build-apk.yml'
 
 jobs:
@@ -18,7 +18,7 @@ jobs:
         run: |
           rm -rf project
           mkdir project
-          unzip -q ScreenOCR-source-v2-android11.zip -d project
+          unzip -q ScreenOCR-source-v2-android11-timestamp.zip -d project
 
       - name: Configurar Java
         uses: actions/setup-java@v4
