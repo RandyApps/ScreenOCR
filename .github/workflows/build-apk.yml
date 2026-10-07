@@ -1,6 +1,6 @@
 name: Construir APK
 
-on:
+"on":
 workflow_dispatch:
 push:
 paths:
@@ -27,7 +27,6 @@ steps:
       echo "Corrigiendo OcrService.kt..."
 
       sed -i '134,144d' app/src/main/java/com/example/screenocr/OcrService.kt
-
       sed -i 's/; addDrag(box,b)//' app/src/main/java/com/example/screenocr/OcrService.kt
 
       echo "OcrService.kt corregido."
