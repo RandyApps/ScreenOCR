@@ -23,8 +23,8 @@ jobs:
       - name: Mostrar OcrService
         working-directory: project
         run: |
-          echo "=== OcrService.kt líneas 90-150 ==="
-          nl -ba app/src/main/java/com/example/screenocr/OcrService.kt | sed -n '90,150p'
+          echo "=== OcrService.kt líneas 120-220 ==="
+          nl -ba app/src/main/java/com/example/screenocr/OcrService.kt | sed -n '120,220p'
 
       - name: Configurar Java
         uses: actions/setup-java@v4
