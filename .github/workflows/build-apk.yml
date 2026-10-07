@@ -23,10 +23,14 @@ jobs:
       - name: Corregir OcrService
         working-directory: project
         run: |
-          echo "Eliminando bloque duplicado de OcrService.kt..."
+          echo "Corrigiendo OcrService.kt..."
+
           sed -i '134,144d' app/src/main/java/com/example/screenocr/OcrService.kt
-          echo "=== OcrService.kt corregido, líneas 120-150 ==="
-          nl -ba app/src/main/java/com/example/screenocr/OcrService.kt | sed -n '120,150p'
+
+          sed -i 's/; addDrag(box,b)//' app/src/main/java/com/example/screenocr/OcrService.kt
+
+          echo "=== OcrService.kt corregido ==="
+          nl -ba app/src/main/java/com/example/screenocr/OcrService.kt | sed -n '120,180p'
 
       - name: Configurar Java
         uses: actions/setup-java@v4
