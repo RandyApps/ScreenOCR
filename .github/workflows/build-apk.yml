@@ -1,124 +1,94 @@
 name: Construir APK
 
 on:
-workflow_dispatch:
-push:
-paths:
-- 'ScreenOCR-source-v2-android11-timestamp.zip'
-- '.github/workflows/build-apk.yml'
+  workflow_dispatch:
+  push:
+    paths:
+      - 'ScreenOCR-source-v2-android11-timestamp.zip'
+      - '.github/workflows/build-apk.yml'
 
 jobs:
-build:
-runs-on: ubuntu-latest
+  build:
+    runs-on: ubuntu-latest
 
-steps:
-  - name: Descargar repositorio
-    uses: actions/checkout@v4
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v4
 
-  - name: Extraer proyecto
-    run: |
-      rm -rf project
-      mkdir project
-      unzip -q ScreenOCR-source-v2-android11-timestamp.zip -d project
+      - name: Extraer proyecto
+        run: |
+          rm -rf project
+          mkdir project
+          unzip -q ScreenOCR-source-v2-android11-timestamp.zip -d project
 
-  - name: Corregir OcrService
-    working-directory: project
-    run: |
-      echo "Corrigiendo OcrService.kt..."
+      - name: Corregir OcrService
+        working-directory: project
+        run: |
+          echo "Corrigiendo OcrService.kt..."
+          sed -i '134,144d' app/src/main/java/com/example/screenocr/OcrService.kt
+          sed -i 's/; addDrag(box,b)//' app/src/main/java/com/example/screenocr/OcrService.kt
 
-      sed -i '134,144d' app/src/main/java/com/example/screenocr/OcrService.kt
+      - name: Configurar Android 11
+        working-directory: project
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
 
-      sed -i 's/; addDrag(box,b)//' app/src/main/java/com/example/screenocr/OcrService.kt
+          p = Path("app/build.gradle")
+          text = p.read_text()
 
-      echo "OcrService.kt corregido."
+          if re.search(r'minSdk(?:Version)?\s+\d+', text):
+              text = re.sub(
+                  r'minSdk(?:Version)?\s+\d+',
+                  'minSdk 30',
+                  text,
+                  count=1
+              )
+          else:
+              text = text.replace(
+                  'defaultConfig {',
+                  'defaultConfig {\n        minSdk 30',
+                  1
+              )
 
-  - name: Forzar compatibilidad Android 11
-    working-directory: project
-    run: |
-      python3 - <<'PY'
-      from pathlib import Path
-      import re
+          p.write_text(text)
 
-      p = Path("app/build.gradle")
-      text = p.read_text()
+          print("Configuración aplicada:")
+          print(text)
+          PY
 
-      print("Configuración original:")
-      print(text)
+      - name: Configurar Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
 
-      # Asegurar minSdk 30 (Android 11)
-      if re.search(r'\bminSdk(?:Version)?\s+\d+', text):
-          text = re.sub(
-              r'\bminSdk(?:Version)?\s+\d+',
-              'minSdk 30',
-              text,
-              count=1
-          )
-      else:
-          text = text.replace(
-              'defaultConfig {',
-              'defaultConfig {\n        minSdk 30',
-              1
-          )
+      - name: Configurar Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
 
-      # Desactivar splits de ABI para producir un APK universal.
-      if 'splits {' not in text:
-          text += '''
+      - name: Compilar APK
+        working-directory: project
+        run: |
+          gradle :app:assembleDebug --stacktrace
 
-      android {
-          splits {
-              abi {
-                  enable false
-              }
-          }
-      }
-      '''
+      - name: Verificar APK
+        working-directory: project
+        run: |
+          APK="app/build/outputs/apk/debug/app-debug.apk"
 
-      p.write_text(text)
+          echo "===== APK ====="
+          ls -lh "$APK"
 
-      print("================================")
-      print("Configuración Android 11 aplicada")
-      print("================================")
-      print(text)
-      PY
+          echo "===== COMPROBANDO APK ====="
+          unzip -t "$APK" > /dev/null
 
-  - name: Configurar Java
-    uses: actions/setup-java@v4
-    with:
-      distribution: temurin
-      java-version: '17'
+          echo "APK válido."
 
-  - name: Configurar Gradle
-    uses: gradle/actions/setup-gradle@v4
-    with:
-      gradle-version: '8.11.1'
-
-  - name: Compilar APK
-    working-directory: project
-    run: |
-      gradle :app:assembleDebug --stacktrace
-
-  - name: Verificar APK
-    working-directory: project
-    run: |
-      APK="app/build/outputs/apk/debug/app-debug.apk"
-
-      echo "===== INFORMACIÓN DEL APK ====="
-      ls -lh "$APK"
-
-      echo "===== ZIP TEST ====="
-      unzip -t "$APK" > /dev/null
-      echo "APK ZIP: OK"
-
-      echo "===== AAPT ====="
-      "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | head -20
-
-      echo "===== APKSIGNER ====="
-      "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
-
-      echo "===== APK VALIDADO CORRECTAMENTE ====="
-
-  - name: Publicar APK
-    uses: actions/upload-artifact@v4
-    with:
-      name: ScreenOCR-APK-Android11
-      path: project/app/build/outputs/apk/debug/app-debug.apk
+      - name: Publicar APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ScreenOCR-APK-Android11
+          path: project/app/build/outputs/apk/debug/app-debug.apk
