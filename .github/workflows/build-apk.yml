@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     paths:
-      - 'ScreenOCR-source.zip'
+      - 'ScreenOCR-source-fixed.zip'
       - '.github/workflows/build-apk.yml'
 
 jobs:
@@ -18,7 +18,7 @@ jobs:
         run: |
           rm -rf project
           mkdir project
-          unzip -q ScreenOCR-source.zip -d project
+          unzip -q ScreenOCR-source-fixed.zip -d project
 
       - name: Configurar Java
         uses: actions/setup-java@v4
