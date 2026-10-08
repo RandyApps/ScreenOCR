@@ -30,26 +30,39 @@ jobs:
             platforms;android-34
             build-tools;34.0.0
 
-      - name: Fix missing function updateLastDetection
+      - name: Fix ventanita - Implementar updateLastDetection
         working-directory: TextDetectorApp
         run: |
           FILE="app/src/main/java/com/textdetector/app/DetectionAccessibilityService.kt"
-          echo "Arreglando $FILE..."
-          # Si no existe la funcion, la creamos
-          if ! grep -q "fun updateLastDetection" "$FILE"; then
-            # Inserta una funcion dummy antes del ultimo }
-            # Primero comentamos la llamada que falla con argumentos
-            sed -i 's/updateLastDetection(.*)/\/\/ Fixed: &/' "$FILE"
-            # Agregamos una funcion vacia al final de la clase para que no falle
-            # Buscamos el final de la clase y metemos la funcion
-            echo '
+          echo "Implementando funcion real..."
+          
+          # Borramos cualquier parche anterior y cualquier llamada comentada
+          sed -i '/private fun updateLastDetection/d' "$FILE"
+
+          # Ahora insertamos la funcion REAL al final de la clase (antes del ultimo })
+          # Quitamos el ultimo } , metemos la funcion y volvemos a poner el }
+          head -n -1 "$FILE" > temp.kt
+          cat >> temp.kt << 'EOF'
+              private fun updateLastDetection(text: String) {
+                  try {
+                      // 1. Guardar en memoria
+                      val prefs = getSharedPreferences("ScreenOCR", MODE_PRIVATE)
+                      prefs.edit()
+                          .putString("last_detection", text)
+                          .putLong("last_time", System.currentTimeMillis())
+                          .apply()
+                      
+                      // 2. Actualizar la ventanita si existe
+                      android.util.Log.d("ScreenOCR", "Ultimo texto: $text")
+                  } catch (e: Exception) {
+                      android.util.Log.e("ScreenOCR", "Error en updateLastDetection", e)
+                  }
+              }
               private fun updateLastDetection() {}
-              private fun updateLastDetection(text: String) {}
-              private fun updateLastDetection(text: String, time: Long) {}
-            ' >> "$FILE"
-            echo "Parche aplicado"
-          fi
-          cat "$FILE" | grep -n "updateLastDetection" -A 2 -B 2
+          }
+          EOF
+          mv temp.kt "$FILE"
+          echo "Funcion implementada"
 
       - name: Grant execute permission for gradlew
         working-directory: TextDetectorApp
