@@ -13,7 +13,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Unzip project
-        run: unzip -o TextDetectorApp.zip && ls -la TextDetectorApp
+        run: unzip -o TextDetectorApp.zip
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -21,56 +21,37 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Accept licenses and install platforms
+      - name: Setup Android SDK manually
         run: |
-          yes | sdkmanager --licenses
-          sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+          echo "ANDROID_SDK_ROOT=/usr/local/lib/android/sdk" >> $GITHUB_ENV
+          echo "ANDROID_HOME=/usr/local/lib/android/sdk" >> $GITHUB_ENV
+          yes | /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager --licenses || true
+          /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
 
-      - name: Fix ventanita - Implementar updateLastDetection correctamente
+      - name: Fix ventanita
         working-directory: TextDetectorApp
         run: |
-          FILE="app/src/main/java/com/textdetector/app/DetectionAccessibilityService.kt"
           python3 << 'PY'
           path = "app/src/main/java/com/textdetector/app/DetectionAccessibilityService.kt"
           with open(path, 'r', encoding='utf-8') as f:
               content = f.read()
-
-          # Si ya existe la funcion con logica, no hacemos nada
-          if "last_detection" in content:
-              print("Ya tiene logica, skip")
-              exit(0)
-
-          # Borra parches vacios anteriores
-          content = content.replace('private fun updateLastDetection() {}', '')
-          content = content.replace('private fun updateLastDetection(text: String) {}', '')
-          content = content.replace('private fun updateLastDetection(text: String, time: Long) {}', '')
-
-          # Implementacion real que guarda y permite mostrar en ventanita
-          func = '''
+          if "last_detection" not in content:
+              content = content.replace('private fun updateLastDetection() {}', '')
+              content = content.replace('private fun updateLastDetection(text: String) {}', '')
+              func = '''
               private fun updateLastDetection(text: String) {
                   try {
                       val prefs = getSharedPreferences("ScreenOCR", MODE_PRIVATE)
                       prefs.edit().putString("last_detection", text).putLong("last_time", System.currentTimeMillis()).apply()
                       android.util.Log.d("ScreenOCR", "Ultimo: $text")
-                  } catch (e: Exception) {
-                      android.util.Log.e("ScreenOCR", "Error", e)
-                  }
+                  } catch (e: Exception) {}
               }
-          '''
-
-          # Insertar antes del ultimo } de la clase
-          idx = content.rstrip().rfind('}')
-          if idx != -1:
+              '''
+              idx = content.rstrip().rfind('}')
               content = content[:idx] + func + "\n}\n"
-          
-          with open(path, 'w', encoding='utf-8') as f:
-              f.write(content)
-          print("Funcion implementada OK")
+              with open(path, 'w', encoding='utf-8') as f:
+                  f.write(content)
           PY
-          cat "$FILE" | grep -n "updateLastDetection" -A 5
 
       - name: Build Debug APK
         working-directory: TextDetectorApp
