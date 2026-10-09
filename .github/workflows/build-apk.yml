@@ -17,7 +17,6 @@ jobs:
             unzip -o TextDetectorApp.zip
             ls -la TextDetectorApp
           else
-            echo "No zip found, assuming source is already present"
             ls -la
           fi
 
@@ -30,23 +29,14 @@ jobs:
         with:
           packages: 'platform-tools platforms;android-34 build-tools;34.0.0'
 
-      - name: Build
+      - name: Build APK
         working-directory: ${{ github.workspace }}/TextDetectorApp
         run: |
-          if [ -f gradlew ]; then
-            chmod +x gradlew
-            ./gradlew assembleDebug --stacktrace
-          else
-            cd ..
-            if [ -d TextDetectorApp ]; then cd TextDetectorApp; fi
-            chmod +x gradlew || true
-            ./gradlew assembleDebug --stacktrace
-          fi
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace
 
       - uses: actions/upload-artifact@v4
         with:
           name: TextDetector-APK
-          path: |
-            TextDetectorApp/app/build/outputs/apk/debug/app-debug.apk
-            app/build/outputs/apk/debug/app-debug.apk
+          path: TextDetectorApp/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: warn
