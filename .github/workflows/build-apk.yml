@@ -8,59 +8,45 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
 
       - name: Unzip project
-        run: unzip -o TextDetectorApp.zip
+        run: |
+          if [ -f TextDetectorApp.zip ]; then
+            unzip -o TextDetectorApp.zip
+            ls -la TextDetectorApp
+          else
+            echo "No zip found, assuming source is already present"
+            ls -la
+          fi
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
+      - uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Setup Android SDK manually
-        run: |
-          echo "ANDROID_SDK_ROOT=/usr/local/lib/android/sdk" >> $GITHUB_ENV
-          echo "ANDROID_HOME=/usr/local/lib/android/sdk" >> $GITHUB_ENV
-          yes | /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager --licenses || true
-          /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools platforms;android-34 build-tools;34.0.0'
 
-      - name: Fix ventanita
-        working-directory: TextDetectorApp
+      - name: Build
+        working-directory: ${{ github.workspace }}/TextDetectorApp
         run: |
-          python3 << 'PY'
-          path = "app/src/main/java/com/textdetector/app/DetectionAccessibilityService.kt"
-          with open(path, 'r', encoding='utf-8') as f:
-              content = f.read()
-          if "last_detection" not in content:
-              content = content.replace('private fun updateLastDetection() {}', '')
-              content = content.replace('private fun updateLastDetection(text: String) {}', '')
-              func = '''
-              private fun updateLastDetection(text: String) {
-                  try {
-                      val prefs = getSharedPreferences("ScreenOCR", MODE_PRIVATE)
-                      prefs.edit().putString("last_detection", text).putLong("last_time", System.currentTimeMillis()).apply()
-                      android.util.Log.d("ScreenOCR", "Ultimo: $text")
-                  } catch (e: Exception) {}
-              }
-              '''
-              idx = content.rstrip().rfind('}')
-              content = content[:idx] + func + "\n}\n"
-              with open(path, 'w', encoding='utf-8') as f:
-                  f.write(content)
-          PY
+          if [ -f gradlew ]; then
+            chmod +x gradlew
+            ./gradlew assembleDebug --stacktrace
+          else
+            cd ..
+            if [ -d TextDetectorApp ]; then cd TextDetectorApp; fi
+            chmod +x gradlew || true
+            ./gradlew assembleDebug --stacktrace
+          fi
 
-      - name: Build Debug APK
-        working-directory: TextDetectorApp
-        run: |
-          chmod +x gradlew
-          ./gradlew assembleDebug --stacktrace
-
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: TextDetector-APK
-          path: TextDetectorApp/app/build/outputs/apk/debug/app-debug.apk
+          path: |
+            TextDetectorApp/app/build/outputs/apk/debug/app-debug.apk
+            app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: warn
