@@ -52,6 +52,7 @@ jobs:
           fi
           export ANDROID_SDK_ROOT="$ANDROID_HOME"
           echo "ANDROID_HOME=$ANDROID_HOME"
+          ls -la "$ANDROID_HOME" || true
 
           echo "sdk.dir=$ANDROID_HOME" > local.properties
           cat local.properties
