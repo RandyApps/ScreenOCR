@@ -11,33 +11,55 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Unzip project
+      - name: Prepare project
         run: |
+          set -e
           if [ -f TriviaHelper.zip ]; then
             unzip -o TriviaHelper.zip
-            ls -la TriviaHelper
-          else
-            ls -la
           fi
+          if [ -f TriviaHelper/gradlew ]; then
+            echo "PROJECT_DIR=TriviaHelper" >> $GITHUB_ENV
+          elif [ -f gradlew ]; then
+            echo "PROJECT_DIR=." >> $GITHUB_ENV
+          else
+            FOUND=$(find . -name gradlew -type f | head -n 1)
+            if [ -z "$FOUND" ]; then
+              echo "No se encontró gradlew"
+              find . -maxdepth 3 -type f | head -50
+              exit 1
+            fi
+            echo "PROJECT_DIR=$(dirname "$FOUND")" >> $GITHUB_ENV
+          fi
+          ls -la "${PROJECT_DIR:-TriviaHelper}"
 
       - uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
 
-      - uses: android-actions/setup-android@v3
-        with:
-          packages: 'platform-tools platforms;android-34 build-tools;34.0.0'
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install SDK packages
+        run: |
+          sdkmanager --install "platforms;android-34" "build-tools;34.0.0" "platform-tools"
+          yes | sdkmanager --licenses || true
 
       - name: Build APK
-        working-directory: ${{ github.workspace }}/TriviaHelper
+        working-directory: ${{ env.PROJECT_DIR }}
         run: |
           chmod +x gradlew
-          ./gradlew assembleDebug --stacktrace
+          sed -i '1s|^#!.*|#!/usr/bin/env bash|' gradlew || true
+          ./gradlew assembleDebug --stacktrace --no-daemon
 
       - name: Rename APK
         run: |
-          SRC=$(find TriviaHelper/app/build/outputs/apk -name "*.apk" | head -n 1)
+          SRC=\( (find " \){PROJECT_DIR}" -path "*/outputs/apk/debug/*.apk" | head -n 1)
+          echo "Found APK: $SRC"
+          if [ -z "$SRC" ]; then
+            find "${PROJECT_DIR}" -name "*.apk" || true
+            exit 1
+          fi
           mkdir -p dist
           cp "$SRC" "dist/Trivia Helper.apk"
 
@@ -45,4 +67,4 @@ jobs:
         with:
           name: TriviaHelper-APK
           path: dist/Trivia Helper.apk
-          if-no-files-found: warn
+          if-no-files-found: error
