@@ -8,6 +8,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
     steps:
       - uses: actions/checkout@v4
 
@@ -30,6 +33,7 @@ jobs:
             fi
             echo "PROJECT_DIR=$(dirname "$FOUND")" >> $GITHUB_ENV
           fi
+          echo "Using: ${PROJECT_DIR:-TriviaHelper}"
           ls -la "${PROJECT_DIR:-TriviaHelper}"
 
       - uses: actions/setup-java@v4
@@ -37,13 +41,24 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install SDK packages
+      - name: Ensure Android SDK packages
         run: |
-          sdkmanager --install "platforms;android-34" "build-tools;34.0.0" "platform-tools"
-          yes | sdkmanager --licenses || true
+          set -e
+          SDK="${ANDROID_HOME}"
+          echo "ANDROID_HOME=$SDK"
+          ls -la "$SDK" || true
+          SM=$(find "$SDK/cmdline-tools" -name sdkmanager -type f 2>/dev/null | head -n 1)
+          if [ -n "$SM" ]; then
+            yes | "$SM" --licenses >/dev/null 2>&1 || true
+            "$SM" --install "platforms;android-34" "build-tools;34.0.0" "platform-tools" || true
+          else
+            echo "sdkmanager no encontrado; se usará el SDK preinstalado del runner"
+          fi
+
+      - name: local.properties
+        run: |
+          echo "sdk.dir=\( ANDROID_HOME" > " \){PROJECT_DIR}/local.properties"
+          cat "${PROJECT_DIR}/local.properties"
 
       - name: Build APK
         working-directory: ${{ env.PROJECT_DIR }}
@@ -62,6 +77,7 @@ jobs:
           fi
           mkdir -p dist
           cp "$SRC" "dist/Trivia Helper.apk"
+          ls -la dist/
 
       - uses: actions/upload-artifact@v4
         with:
