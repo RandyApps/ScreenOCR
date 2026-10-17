@@ -8,76 +8,64 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      ANDROID_HOME: /usr/local/lib/android/sdk
-      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
     steps:
       - uses: actions/checkout@v4
-
-      - name: Prepare project
-        run: |
-          set -e
-          if [ -f TriviaHelper.zip ]; then
-            unzip -o TriviaHelper.zip
-          fi
-          if [ -f TriviaHelper/gradlew ]; then
-            echo "PROJECT_DIR=TriviaHelper" >> $GITHUB_ENV
-          elif [ -f gradlew ]; then
-            echo "PROJECT_DIR=." >> $GITHUB_ENV
-          else
-            FOUND=$(find . -name gradlew -type f | head -n 1)
-            if [ -z "$FOUND" ]; then
-              echo "No se encontró gradlew"
-              find . -maxdepth 3 -type f | head -50
-              exit 1
-            fi
-            echo "PROJECT_DIR=$(dirname "$FOUND")" >> $GITHUB_ENV
-          fi
-          echo "Using: ${PROJECT_DIR:-TriviaHelper}"
-          ls -la "${PROJECT_DIR:-TriviaHelper}"
 
       - uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Ensure Android SDK packages
+      - name: Prepare and build
         run: |
-          set -e
-          SDK="${ANDROID_HOME}"
-          echo "ANDROID_HOME=$SDK"
-          ls -la "$SDK" || true
-          SM=$(find "$SDK/cmdline-tools" -name sdkmanager -type f 2>/dev/null | head -n 1)
-          if [ -n "$SM" ]; then
-            yes | "$SM" --licenses >/dev/null 2>&1 || true
-            "$SM" --install "platforms;android-34" "build-tools;34.0.0" "platform-tools" || true
-          else
-            echo "sdkmanager no encontrado; se usará el SDK preinstalado del runner"
+          set -eux
+
+          if [ -f TriviaHelper.zip ]; then
+            unzip -o TriviaHelper.zip
           fi
 
-      - name: local.properties
-        run: |
-          echo "sdk.dir=\( ANDROID_HOME" > " \){PROJECT_DIR}/local.properties"
-          cat "${PROJECT_DIR}/local.properties"
+          if [ -f TriviaHelper/gradlew ]; then
+            cd TriviaHelper
+          elif [ -f gradlew ]; then
+            true
+          else
+            FOUND=$(find . -name gradlew -type f | head -n 1)
+            if [ -z "$FOUND" ]; then
+              echo "ERROR: no se encontro gradlew"
+              find . -maxdepth 4 -type f | head -80
+              exit 1
+            fi
+            cd "$(dirname "$FOUND")"
+          fi
+          echo "PWD=$(pwd)"
+          ls -la
 
-      - name: Build APK
-        working-directory: ${{ env.PROJECT_DIR }}
-        run: |
+          if [ -z "${ANDROID_HOME:-}" ]; then
+            if [ -d /usr/local/lib/android/sdk ]; then
+              export ANDROID_HOME=/usr/local/lib/android/sdk
+            elif [ -d "$HOME/Android/Sdk" ]; then
+              export ANDROID_HOME="$HOME/Android/Sdk"
+            else
+              echo "ERROR: no hay ANDROID_HOME"
+              exit 1
+            fi
+          fi
+          export ANDROID_SDK_ROOT="$ANDROID_HOME"
+          echo "ANDROID_HOME=$ANDROID_HOME"
+
+          echo "sdk.dir=$ANDROID_HOME" > local.properties
+          cat local.properties
+
           chmod +x gradlew
           sed -i '1s|^#!.*|#!/usr/bin/env bash|' gradlew || true
           ./gradlew assembleDebug --stacktrace --no-daemon
 
-      - name: Rename APK
-        run: |
-          SRC=\( (find " \){PROJECT_DIR}" -path "*/outputs/apk/debug/*.apk" | head -n 1)
-          echo "Found APK: $SRC"
-          if [ -z "$SRC" ]; then
-            find "${PROJECT_DIR}" -name "*.apk" || true
-            exit 1
-          fi
-          mkdir -p dist
-          cp "$SRC" "dist/Trivia Helper.apk"
-          ls -la dist/
+          SRC=$(find app/build/outputs/apk -name "*.apk" | head -n 1)
+          echo "APK=$SRC"
+          test -n "$SRC"
+          mkdir -p "$GITHUB_WORKSPACE/dist"
+          cp "$SRC" "$GITHUB_WORKSPACE/dist/Trivia Helper.apk"
+          ls -la "$GITHUB_WORKSPACE/dist"
 
       - uses: actions/upload-artifact@v4
         with:
