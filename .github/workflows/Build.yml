@@ -7,10 +7,9 @@ jobs:
       - uses: actions/checkout@v3
       - name: Unzip project
         run: |
-          rm -rf app build.gradle settings.gradle
           unzip -o Trivias.zip -d .
           ls -la
-          ls -la app/
+          ls -la Trivias/
       - uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
@@ -20,10 +19,9 @@ jobs:
           gradle-version: 8.7
       - name: Build APK
         run: |
-          ROOT=$(find . -maxdepth 3 -name "settings.gradle" | head -n 1 | xargs dirname)
-          echo "Proyecto en: $ROOT"
-          cd $ROOT && gradle assembleDebug
+          cd Trivias
+          gradle assembleDebug
       - uses: actions/upload-artifact@v4
         with:
           name: Trivias-APK
-          path: "**/app-debug.apk"
+          path: Trivias/app/build/outputs/apk/debug/app-debug.apk
