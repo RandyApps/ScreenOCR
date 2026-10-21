@@ -1,18 +1,24 @@
-name: Build from ZIP
+name: Build Trivias only
 on: [push]
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - run: unzip -o Trivias.zip -d .
+      - name: Clean old builds
+        run: rm -rf TriviaHelper app/build && rm -rf Trivias
+      - name: Unzip Trivias only
+        run: unzip -o Trivias.zip -d ./Trivias
       - uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
           java-version: '17'
-      - run: chmod +x ./gradlew || chmod +x ./Trivias/gradlew
-      - run: cd Trivias && ./gradlew assembleDebug || cd . && ./gradlew assembleDebug
-      - uses: actions/upload-artifact@v3
+      - name: Make gradlew executable
+        run: chmod +x ./Trivias/gradlew
+      - name: Build APK
+        run: cd ./Trivias && ./gradlew assembleDebug
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
         with:
           name: Trivias-APK
-          path: "**/app-debug.apk"
+          path: ./Trivias/app/build/outputs/apk/debug/app-debug.apk
