@@ -5,15 +5,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - run: rm -rf TriviaHelper app
-      - run: unzip -o Trivias.zip -d .
+      - name: Clean
+        run: rm -rf TriviaHelper app
+      - name: Unzip
+        run: |
+          unzip -o Trivias.zip -d .
+          ls -R
       - uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
           java-version: '17'
-      - run: chmod +x ./gradlew
-      - run: ./gradlew assembleDebug
+      - name: Find and build
+        run: |
+          GRADLEW=$(find . -name gradlew -type f | head -n 1)
+          echo "Encontrado: $GRADLEW"
+          chmod +x $GRADLEW
+          DIR=$(dirname $GRADLEW)
+          cd $DIR && ./gradlew assembleDebug
       - uses: actions/upload-artifact@v4
         with:
           name: Trivias-APK
-          path: app/build/outputs/apk/debug/Trivias.apk
+          path: "**/Trivias.apk"
