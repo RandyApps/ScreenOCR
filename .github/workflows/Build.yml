@@ -17,6 +17,11 @@ jobs:
           distribution: 'temurin'
 
       - name: Prepare and build
+        env:
+          TRIVIAS_STORE_PASSWORD: ${{ secrets.TRIVIAS_STORE_PASSWORD }}
+          TRIVIAS_KEY_PASSWORD: ${{ secrets.TRIVIAS_KEY_PASSWORD }}
+          TRIVIAS_KEY_ALIAS: ${{ secrets.TRIVIAS_KEY_ALIAS }}
+          TRIVIAS_KEYSTORE_BASE64: ${{ secrets.TRIVIAS_KEYSTORE_BASE64 }}
         run: |
           set -eux
           if [ -f Trivias.zip ]; then
@@ -47,9 +52,16 @@ jobs:
           fi
           export ANDROID_SDK_ROOT="$ANDROID_HOME"
           echo "sdk.dir=$ANDROID_HOME" > local.properties
-          if [ ! -f keystore/trivia-helper.jks ]; then
-            echo "WARN: keystore missing"
+          # Restaurar keystore desde secret (Base64) — no va en el repo
+          mkdir -p keystore
+          if [ -n "${TRIVIAS_KEYSTORE_BASE64:-}" ]; then
+            echo "$TRIVIAS_KEYSTORE_BASE64" | base64 -d > keystore/trivia-helper.jks
+            echo "keystore restored from secret"
+          elif [ ! -f keystore/trivia-helper.jks ]; then
+            echo "ERROR: falta TRIVIAS_KEYSTORE_BASE64 y no hay keystore/trivia-helper.jks"
+            exit 1
           fi
+          export TRIVIAS_KEYSTORE_PATH="$(pwd)/keystore/trivia-helper.jks"
           chmod +x gradlew
           sed -i '1s|^#!.*|#!/usr/bin/env bash|' gradlew || true
           ./gradlew assembleDebug --stacktrace --no-daemon
